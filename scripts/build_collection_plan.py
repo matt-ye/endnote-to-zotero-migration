@@ -4,6 +4,9 @@ Matching: normalized title, with year as tie-breaker when several distinct
 works share a title. Duplicate imports of the same work all get assigned
 (later duplicate-merge unions collections, so the end state is correct).
 
+The plan also carries `tags`: EndNote's read status and star rating, which
+the XML export drops, as Zotero tags (READ_TAG, STAR below) for the same keys.
+
 Usage: python build_collection_plan.py <snapshot.json> <zotero.sqlite> <plan.json> [root-name]
 
 `root-name` is the top-level Zotero collection the rebuilt group tree hangs
@@ -26,6 +29,17 @@ import unicodedata
 
 ROOT_NAME = "EndNote分組"
 UNGROUPED_SET = "(未分組)"
+READ_TAG = "_read"          # EndNote "Read"; unread refs get no tag
+STAR = "★"                  # rating 20/40/.../100 -> ★ .. ★★★★★
+
+
+def status_tags(ref: dict) -> list[str]:
+    """Zotero tags carrying EndNote's read status and star rating."""
+    tags = [READ_TAG] if ref.get("read") else []
+    rating = ref.get("rating", "")
+    if rating.isdigit() and 1 <= int(rating) // 20 <= 5:
+        tags.append(STAR * (int(rating) // 20))
+    return tags
 
 
 def norm_title(t: str) -> str:
@@ -117,13 +131,21 @@ def main(snapshot_path: str, db_path: str, out_path: str,
     if orphan_entries:
         plan_sets.append({"name": UNGROUPED_SET, "groups": orphan_entries})
 
-    plan = {"root": root_name, "sets": plan_sets, "unmatched": unmatched}
+    tags: dict[str, set[str]] = {}
+    for rid, keys in ref_keys.items():
+        for tag in status_tags(refs[rid]):
+            tags.setdefault(tag, set()).update(keys)
+
+    plan = {"root": root_name, "sets": plan_sets,
+            "tags": {t: sorted(k) for t, k in sorted(tags.items())},
+            "unmatched": unmatched}
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, ensure_ascii=False, indent=1)
 
     n_groups = sum(len(s["groups"]) for s in plan_sets)
     n_assign = sum(len(g["itemKeys"]) for s in plan_sets for g in s["groups"])
     print(f"sets: {len(plan_sets)}  groups: {n_groups}  assignments: {n_assign}")
+    print("tags: " + ("  ".join(f"{t}={len(k)}" for t, k in plan["tags"].items()) or "none"))
     print(f"unmatched refs (in no collection): {len(unmatched)}")
     for u in unmatched[:10]:
         print(f"  [{u['ref_id']}] {u['author']} ({u['year']}) {u['title'][:60]}")

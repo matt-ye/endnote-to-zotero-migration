@@ -5,8 +5,9 @@
 //  - 指派改用 item.addToCollection + item.save(相容性最好的寫法)
 //  - find-or-create:已存在的 collection 直接沿用,已指派的項目跳過 → 中斷後直接重跑即可
 //  - 每個 group 獨立 try/catch,單點失敗不會中斷全部,結尾回報錯誤清單
+//  - 順便把 EndNote 已讀狀態與星等寫成 tag(_read、★…★★★★★);已有的 tag 跳過
 //
-// ⚠️ 這支腳本會「新增」collection 並把文獻指派進去,不會刪除或修改任何文獻內容。
+// ⚠️ 這支腳本會「新增」collection、把文獻指派進去並加上 tag,不會刪除或修改任何文獻內容。
 //    可安全重跑:已存在的 collection 沿用、已指派的項目跳過。
 
 // ⬇️⬇️ 唯一需要你修改的一行:改成 build_collection_plan.py 產出的 plan 檔路徑
@@ -64,9 +65,34 @@ for (let set of plan.sets) {
     }
 }
 
+// EndNote 的已讀狀態與星等(XML 匯出不含)→ Zotero tag。舊版 plan 沒有 tags 就略過
+var nTagged = 0;
+for (let [tag, keys] of Object.entries(plan.tags || {})) {
+    try {
+        let toTag = [];
+        for (let key of keys) {
+            let item = Zotero.Items.getByLibraryAndKey(libraryID, key);
+            if (!item) continue;  // 已在上面計入 missingKeys
+            if (!item.hasTag(tag)) toTag.push(item);
+        }
+        if (toTag.length) {
+            await Zotero.DB.executeTransaction(async function () {
+                for (let item of toTag) {
+                    item.addTag(tag);
+                    await item.save();
+                }
+            });
+            nTagged += toTag.length;
+        }
+    } catch (e) {
+        errors.push('tag ' + tag + ' → ' + e.message);
+    }
+}
+
 return (errors.length ? '⚠️ 部分失敗\n' : '✅ 完成\n')
     + 'group sets: ' + plan.sets.length + '\n'
     + 'groups 處理: ' + nGroups + '\n'
     + '本次新指派: ' + nAssigned + '(已存在跳過: ' + nSkipped + ')\n'
+    + '本次新加 tag(已讀/星等): ' + nTagged + '\n'
     + '找不到的 item key: ' + missingKeys.length + '\n'
     + (errors.length ? '\n錯誤(' + errors.length + '):\n' + errors.join('\n') : '');
