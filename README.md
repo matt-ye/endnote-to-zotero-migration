@@ -68,7 +68,7 @@ Zotero 匯入 EndNote XML 時，**書目與 PDF 會過去，但分組（Groups�
 | `export_endnote_groups.py` | 唯讀開啟（SQLite `mode=ro`，由資料庫層強制） | 不碰 |
 | `verify_export_xml.py` | 只讀 XML 與檢查檔案是否存在 | 不碰 |
 | `build_collection_plan.py` | 不碰 | 唯讀開啟（`immutable=1`） |
-| `rebuild_collections.js` | 不碰 | **新增** collection 並指派文獻；不刪除、不修改文獻內容 |
+| `rebuild_collections.js` | 不碰 | **新增** collection 並指派文獻，把已讀狀態與星等加成 tag（`_read`、`★`…）；不刪除、不修改文獻內容 |
 | `cleanup_endnote_notes.js` | 不碰 | 把匯入殘留 note **移到垃圾桶**（可還原） |
 | `rename_attachments.js` | 不碰 | 只改 stored PDF 附件**檔名**；跳過 linked file，衝突時加流水號不覆蓋 |
 

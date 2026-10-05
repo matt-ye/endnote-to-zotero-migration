@@ -224,6 +224,9 @@ python scripts/build_collection_plan.py snapshot.json "<zotero.sqlite>" plan.jso
 **可安全重跑**——中斷了直接再跑一次，已建的沿用、已指派的跳過。
 
 **🚦 關卡**：collection 數與步驟 3 的 group 數相符，抽查 3–5 組成員數合理。
+同一支腳本會加已讀／星等 tag（`_read`、`★`…`★★★★★`）。核對用 `build_collection_plan.py` 印的
+`tags:` 行（不是 JS 的「本次新加」，重跑時那個是 0）：`_read` 對 `refs_read`、星等加總對 `refs_rated`；
+略多正常（重複匯入都會加），明顯偏少先看 unmatched。
 
 ### 步驟 8：清理（每項都要先問過）
 

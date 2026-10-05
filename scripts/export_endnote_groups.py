@@ -1,7 +1,8 @@
 """Extract EndNote group structure from sdb.eni (read-only) into a JSON snapshot.
 
 EndNote (X9.3+) stores its library in SQLite:
-  - refs:   one row per reference (id, author, year, title, trash_state, ...)
+  - refs:   one row per reference (id, author, year, title, trash_state,
+            read_status, rating, ...)
   - groups: custom/smart groups; `spec` is an XML blob (uuid, name, rules),
             `members` is a binary blob: 4-byte header, then little-endian
             uint32 count, then count x little-endian uint32 ref ids
@@ -57,9 +58,16 @@ def parse_groupset_xml(value: bytes) -> dict:
 def main(db_path: str, out_path: str) -> None:
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
 
+    # read_status ('1' = read) and rating (0-100, 20 per star) live only in the
+    # database -- EndNote's XML export drops them. Older libraries may lack the
+    # columns, so fall back to empty strings.
+    cols = {r[1] for r in con.execute("PRAGMA table_info(refs)")}
+    read_col = "read_status" if "read_status" in cols else "''"
+    rating_col = "rating" if "rating" in cols else "''"
+
     refs = {}
-    for rid, author, year, title, trash in con.execute(
-        "SELECT id, author, year, title, trash_state FROM refs"
+    for rid, author, year, title, trash, read, rating in con.execute(
+        f"SELECT id, author, year, title, trash_state, {read_col}, {rating_col} FROM refs"
     ):
         first_author = (author or "").split("\r")[0].split("\n")[0].strip()
         refs[rid] = {
@@ -68,6 +76,8 @@ def main(db_path: str, out_path: str) -> None:
             "year": (year or "").strip(),
             "title": re.sub(r"\s+", " ", (title or "")).strip(),
             "in_trash": bool(trash),
+            "read": str(read or "").strip() == "1",
+            "rating": str(rating or "").strip(),
         }
 
     groups = {}
@@ -101,6 +111,9 @@ def main(db_path: str, out_path: str) -> None:
             "refs_total": len(refs),
             "refs_active": active_refs,
             "refs_trash": len(refs) - active_refs,
+            "refs_read": sum(1 for r in refs.values() if r["read"] and not r["in_trash"]),
+            "refs_rated": sum(1 for r in refs.values() if r["rating"].isdigit()
+                              and 1 <= int(r["rating"]) // 20 <= 5 and not r["in_trash"]),
             "groups": len(groups),
             "custom_groups": sum(1 for g in groups.values() if g["is_custom"]),
             "groupsets": len(groupsets),

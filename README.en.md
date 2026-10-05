@@ -53,7 +53,7 @@ No Python packages to install; standard library only.
 | `export_endnote_groups.py` | opened read-only (SQLite `mode=ro`, enforced by the database) | untouched |
 | `verify_export_xml.py` | reads the XML, checks files exist | untouched |
 | `build_collection_plan.py` | untouched | opened read-only (`immutable=1`) |
-| `rebuild_collections.js` | untouched | **adds** collections and files references into them; deletes nothing, edits no reference |
+| `rebuild_collections.js` | untouched | **adds** collections and files references into them, and tags read status and ratings (`_read`, `★`…); only adds, never deletes or changes reference fields |
 | `cleanup_endnote_notes.js` | untouched | moves leftover import notes **to the trash** (recoverable) |
 | `rename_attachments.js` | untouched | renames stored PDF attachments only; skips linked files, appends a number on conflict rather than overwriting |
 
@@ -101,6 +101,7 @@ The Chinese manual covers this in [`docs/01_Word舊稿必讀.md`](docs/01_Word�
 |---|---|---|
 | References imported, no PDFs | XML was not inside the `.Data` folder | Delete that import batch, move the XML into `.Data`, import again |
 | All groups have disappeared | Expected | Zotero's import does not carry groups; steps 7–8 rebuild them |
+| Read/Unread status and star ratings are gone | EndNote's XML export does not include them | Step 7 reads them from `sdb.eni` and adds tags: `_read` for read (unread gets none), `★` to `★★★★★` for ratings |
 | Import crawls or hangs | Too much at once with sync on | Turn sync off, import in batches of 500–1,000 |
 | A pile of strange notes appeared | EndNote fields Zotero has no home for get dumped into notes | Run `cleanup_endnote_notes.js` |
 | Non-Latin text is mojibake | XML encoding | Set EndNote's export encoding to Unicode (UTF-8) |
