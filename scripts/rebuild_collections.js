@@ -23,6 +23,8 @@ function findChild(name, parentID) {
 }
 
 async function findOrCreate(name, parentID) {
+    // Zotero 存 collection 名稱時會去掉頭尾空白;不先 trim,重跑會找不到而建出重複分組
+    name = name.trim();
     var c = findChild(name, parentID);
     if (c) return c;
     c = new Zotero.Collection();
